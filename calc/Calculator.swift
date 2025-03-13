@@ -23,12 +23,9 @@ class Calculator {
     ///
     /// - Warning: The result may yield Int overflow.
     /// - SeeAlso: https://developer.apple.com/documentation/swift/int/2884663-addingreportingoverflow
-    func add(no1: Int, no2: Int) -> Int {
-        return no1 + no2;
-    }
     
-    func calculate(args: [String]) -> String {
-        let result = String((evaluate(args)));
+    func calculate(args: [String]) -> Any {
+        let result = (evaluate(args));
         return(result)
     }
     
@@ -107,9 +104,8 @@ class Calculator {
     }
 
     func shuntingYard(_ equ: [String]) -> [String] {
-        var equ = tokenize(equ)
-        var infix = equ
-        print("infix: " + infix.joined() + "\n")
+        let equ = tokenize(equ)
+        let infix = equ
         var post: [String] = []
         var op: [String] = []
         var i = 0
@@ -124,7 +120,7 @@ class Calculator {
                 while let last = op.last, last != "[" {
                     post.append(op.popLast()!)
                 }
-                op.popLast()
+                op.removeLast()
             } else {
                 while let last = op.last, last != "[" && precedence(last) >= precedence(token) {
                     post.append(op.popLast()!)
@@ -133,15 +129,13 @@ class Calculator {
             }
             
             i += 1
-            print(" output: " + post.joined())
-            print(" stack: " + op.joined() + "\n")
+
         }
         
         while let last = op.popLast() {
             post.append(last)
         }
 
-        print("postfix: " + post.joined() + "\n")
         
         return post
     }
@@ -157,19 +151,24 @@ class Calculator {
             } else {
                 switch equ[i] {
                 case "+":
-                    temp = eval.removeLast(2).reduce(0, +)
+                    temp = eval[eval.count - 2] + eval[eval.count - 1]
+                    eval.removeLast(2)
                     eval.append(temp)
                 case "-":
-                    temp = eval.removeLast(2).reduce(-)
+                    temp = eval[eval.count - 2] - eval[eval.count - 1]
+                    eval.removeLast(2)
                     eval.append(temp)
                 case "x":
-                    temp = eval.removeLast(2).reduce(*)
+                    temp = eval[eval.count - 2] * eval[eval.count - 1]
+                    eval.removeLast(2)
                     eval.append(temp)
                 case "/":
-                    temp = eval.removeLast(2).reduce(/)
+                    temp = eval[eval.count - 2] / eval[eval.count - 1]
+                    eval.removeLast(2)
                     eval.append(temp)
                 case "%":
-                    temp = eval.removeLast(2).reduce(%)
+                    temp = eval[eval.count - 2].remainder(dividingBy: eval[eval.count - 1])
+                    eval.removeLast(2)
                     eval.append(temp)
                 default:
                     break
@@ -179,7 +178,7 @@ class Calculator {
         }
 
         let result = eval.last!
-        if result.isInteger {
+        if result.truncatingRemainder(dividingBy: 1) == 0 {
             return Int(result)
         } else {
             return result
