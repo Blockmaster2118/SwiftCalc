@@ -7,10 +7,8 @@
 //
 import Foundation
 
-
 var args = ProcessInfo.processInfo.arguments
 args.removeFirst() 
-
 
 if args.isEmpty {
     print("Error: No expression provided.")
@@ -18,7 +16,5 @@ if args.isEmpty {
 }
 
 let calculator = Calculator()
-
 let result = calculator.calculate(args: args)
-
-print((result))
+print(result)
