@@ -12,9 +12,11 @@ args.removeFirst()
 
 if args.isEmpty {
     print("Error: No expression provided.")
-    exit(1)
+    exit(1)  
 }
 
 let calculator = Calculator()
+
 let result = calculator.calculate(args: args)
 print(result)
+

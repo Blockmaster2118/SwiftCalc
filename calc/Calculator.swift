@@ -9,87 +9,102 @@
 import Foundation
 
 class Calculator {
-    var currentResult = 0
-    private let tokenizer = Tokenizer()
-    private let parser = Parser()
-    private let evaluator = Evaluator()
+    func calculate(args: [String]) -> Any {
+        let tokenizer = Tokenizer()
+        let parser = Parser()
+        let evaluator = Evaluator()
+        
+        let tokens = tokenizer.tokenize(args)
+        let postfix = parser.shuntingYard(tokens)
+        let result = evaluator.evaluate(postfix)
+        
+        return result
+    }
+}
+
+class Tokenizer {
     
-    func calculate(args: [String]) -> Int {
-        do {
-            let tokens = try tokenizer.tokenize(args)
-            let postfix = parser.shuntingYard(tokens)
-            return evaluator.evaluate(postfix)
-        } catch let error as CalculationError {
-            print("Error: \(error.message)")
-            exit(error.exitCode)
-        } catch {
-            print("Unexpected error occurred.")
+    private let pattern = "^(?:[+-]?[0-9]+|[+\\-x/%])$"
+    
+    func tokenize(_ equ: [String]) -> [String] {
+        var token = validEquTest(equ)
+        var i = 0
+        while i < token.count {
+            if let _ = formErrorTest(token[i]) {
+                i += 1
+            }
+        }
+        return token
+    }
+    
+    private func validEquTest(_ equ: [String]) -> [String] {
+        if let first = equ.first, let last = equ.last,
+           let _ = Int(first), let _ = Int(last) {
+            return equ
+        } else {
+            print("Invalid: Equation incomplete")
+            exit(1)
+        }
+    }
+
+    private func formErrorTest(_ equ: String) -> String? {
+        let regex = try! NSRegularExpression(pattern: pattern)
+        let range = NSRange(location: 0, length: equ.utf16.count)
+        
+        if regex.firstMatch(in: equ, options: [], range: range) != nil {
+            return equ
+        } else if equ.contains(" ") {
+            print("Invalid: Input contains spaces.")
+            exit(1)
+        } else if !equ.allSatisfy({ $0.isNumber || "+-x/%".contains($0) }) {
+            print("Invalid: Contains unsupported characters.")
+            exit(1)
+        } else if "+/%".contains(equ.first!) {
+            print("Invalid: '\(equ.first!)' cannot be at the start.")
+            exit(1)
+        } else if equ.filter({ $0 == "-" }).count > 1 && !equ.hasPrefix("-") {
+            print("Invalid: Misplaced '-' detected.")
+            exit(1)
+        } else {
+            print("Invalid: Does not match any allowed format.")
             exit(1)
         }
     }
 }
 
-enum CalculationError: Error {
-    case invalidEquation(reason: String, exitCode: Int)
-    
-    var message: String {
-        switch self {
-        case .invalidEquation(let reason, _):
-            return reason
-        }
-    }
-    
-    var exitCode: Int {
-        switch self {
-        case .invalidEquation(_, let exitCode):
-            return exitCode
-        }
-    }
-}
-
-class Tokenizer {
-    private let pattern = "^(?:[-+]?[0-9]+|[+\-x/%])$"
-    
-    func tokenize(_ equ: [String]) throws -> [String] {
-        let validEquation = try validateEquation(equ)
-        return validEquation.filter { isValidToken($0) }
-    }
-    
-    private func isValidToken(_ equ: String) -> Bool {
-        let regex = try! NSRegularExpression(pattern: pattern)
-        let range = NSRange(location: 0, length: equ.utf16.count)
-        return regex.firstMatch(in: equ, options: [], range: range) != nil
-    }
-    
-    private func validateEquation(_ equ: [String]) throws -> [String] {
-        if equ.isEmpty {
-            throw CalculationError.invalidEquation(reason: "Equation cannot be empty.", exitCode: 2)
-        }
-        if let first = equ.first, let last = equ.last,
-           let _ = Int(first.replacingOccurrences(of: "+", with: "")), 
-           let _ = Int(last.replacingOccurrences(of: "+", with: "")) {
-            return equ
-        } else {
-            throw CalculationError.invalidEquation(reason: "Equation incomplete or malformed.", exitCode: 3)
-        }
-    }
-}
-
 class Parser {
+    
+    private let pattern = "^(?:[+-]?[0-9]+|[+\\-x/%])$"
+    
+    func precedence(_ op: String) -> Int {
+        switch op {
+        case "+", "-":
+            return 1
+        case "x", "/", "%":
+            return 2
+        default:
+            return 0
+        }
+    }
+
     func shuntingYard(_ equ: [String]) -> [String] {
-        let precedence: [String: Int] = ["+": 1, "-": 1, "x": 2, "/": 2, "%": 2]
+        let infix = equ
         var post: [String] = []
         var op: [String] = []
-        
-        for token in equ {
-            if let _ = Int(token.replacingOccurrences(of: "+", with: "")) {
+        var i = 0
+        while i < infix.count {
+            let token = infix[i]
+            
+            if let _ = Int(token) {
                 post.append(token)
             } else {
-                while let last = op.last, precedence[last] ?? 0 >= precedence[token] ?? 0 {
+                while let last = op.last, precedence(last) >= precedence(token) {
                     post.append(op.popLast()!)
                 }
                 op.append(token)
             }
+            
+            i += 1
         }
         
         while let last = op.popLast() {
@@ -101,43 +116,51 @@ class Parser {
 }
 
 class Evaluator {
-    func evaluate(_ equ: [String]) -> Int {
+    
+    func evaluate(_ equ: [String]) -> Any {
         var eval: [Int] = []
-        
-        for token in equ {
-            let processedToken = token.replacingOccurrences(of: "+", with: "")
-            if let number = Int(processedToken) {
+        var temp = 0
+        var i = 0
+        while i < equ.count {
+            if let number = Int(equ[i]) {
                 eval.append(number)
-            } else if eval.count >= 2 {
-                let b = eval.removeLast()
-                let a = eval.removeLast()
-                
-                switch token {
-                case "+": eval.append(a + b)
-                case "-": eval.append(a - b)
-                case "x": eval.append(a * b)
-                case "/": 
-                    if b == 0 {
-                        print("Error: Division by zero is not allowed.")
-                        exit(4)
-                    }
-                    eval.append(a / b)
-                case "%": 
-                    if b == 0 {
-                        print("Error: Modulo by zero is not allowed.")
-                        exit(5)
-                    }
-                    eval.append(a % b)
-                default: 
-                    print("Error: Unknown operator '\(token)'.")
-                    exit(6)
-                }
             } else {
-                print("Error: Insufficient operands for operator '\(token)'.")
-                exit(7)
+                switch equ[i] {
+                case "+":
+                    temp = eval[eval.count - 2] + eval[eval.count - 1]
+                    eval.removeLast(2)
+                    eval.append(temp)
+                case "-":
+                    temp = eval[eval.count - 2] - eval[eval.count - 1]
+                    eval.removeLast(2)
+                    eval.append(temp)
+                case "x":
+                    temp = eval[eval.count - 2] * eval[eval.count - 1]
+                    eval.removeLast(2)
+                    eval.append(temp)
+                case "/":
+                    if eval[eval.count - 1] == 0 {
+                        print("Error: Division by zero.")
+                        exit(2)  
+                    }
+                    temp = eval[eval.count - 2] / eval[eval.count - 1]
+                    eval.removeLast(2)
+                    eval.append(temp)
+                case "%":
+                    if eval[eval.count - 1] == 0 {
+                        print("Error: Division by zero.")
+                        exit(2)  
+                    }
+                    temp = eval[eval.count - 2] % eval[eval.count - 1]
+                    eval.removeLast(2)
+                    eval.append(temp)
+                default:
+                    break
+                }
             }
+            i += 1
         }
-        
+
         return eval.last!
     }
 }
