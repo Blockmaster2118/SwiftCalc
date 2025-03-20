@@ -9,6 +9,10 @@
 import Foundation
 
 class Calculator {
+    
+    private var currentResult = 0
+    
+    // Method to calculate the result from the input
     func calculate(args: [String]) -> Any {
         let tokenizer = Tokenizer()
         let parser = Parser()
@@ -24,22 +28,35 @@ class Calculator {
 
 class Tokenizer {
     
+    private let operators = "+-x/%"
     private let pattern = "^(?:[+-]?[0-9]+|[+\\-x/%])$"
     
     func tokenize(_ equ: [String]) -> [String] {
-        var token = validEquTest(equ)
+        let token = equ
         var i = 0
         while i < token.count {
             if let _ = formErrorTest(token[i]) {
                 i += 1
             }
         }
-        return token
+        return validEquTest(token)
     }
     
     private func validEquTest(_ equ: [String]) -> [String] {
         if let first = equ.first, let last = equ.last,
            let _ = Int(first), let _ = Int(last) {
+            
+            for i in 0..<equ.count - 1 {
+                if let _ = Int(equ[i]), let _ = Int(equ[i + 1]) {
+                    print("Invaid: Missing operator between numbers \(equ[i]) and \(equ[i + 1]).")
+                    exit(1)
+                }
+                
+                if operators.contains(equ[i]) && operators.contains(equ[i + 1]) {
+                    print("Invaid: Two consecutive operators between \(equ[i]) and \(equ[i + 1]).")
+                    exit(1)
+                }
+            }
             return equ
         } else {
             print("Invalid: Equation incomplete")
@@ -56,14 +73,14 @@ class Tokenizer {
         } else if equ.contains(" ") {
             print("Invalid: Input contains spaces.")
             exit(1)
-        } else if !equ.allSatisfy({ $0.isNumber || "+-x/%".contains($0) }) {
+        } else if !equ.allSatisfy({ $0.isNumber || operators.contains($0) }) {
             print("Invalid: Contains unsupported characters.")
             exit(1)
-        } else if "+/%".contains(equ.first!) {
-            print("Invalid: '\(equ.first!)' cannot be at the start.")
+        } else if operators.contains(equ.last!) {
+            print("Invalid: '\(equ.last!)' cannot be at the end of a number.")
             exit(1)
-        } else if equ.filter({ $0 == "-" }).count > 1 && !equ.hasPrefix("-") {
-            print("Invalid: Misplaced '-' detected.")
+        } else if operators.contains(equ.first!) {
+            print("Invalid: '\(equ.first!)' cannot be at the start of a number.")
             exit(1)
         } else {
             print("Invalid: Does not match any allowed format.")
@@ -73,8 +90,6 @@ class Tokenizer {
 }
 
 class Parser {
-    
-    private let pattern = "^(?:[+-]?[0-9]+|[+\\-x/%])$"
     
     func precedence(_ op: String) -> Int {
         switch op {
